@@ -1,0 +1,9 @@
+{
+	"search.exclude": {
+		"**/bin-debug": true,
+		"**/bin-release": true
+	}
+	,
+    "editor.fontSize": 18,
+    "git.enabled": false
+}
