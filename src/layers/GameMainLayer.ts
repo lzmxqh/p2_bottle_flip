@@ -2,10 +2,6 @@ namespace bottle {
     export class GameMainLayer extends eui.UILayer {
         private static readonly WORLD_GRAVITY_X: number = 0;           // p2物理世界横向重力
         private static readonly WORLD_GRAVITY_Y: number = 3000;        // p2物理世界垂直重力
-        private static readonly PLAYER_VX: number = 370;                // 玩家横向移动速度
-        private static readonly PLAYER_VY: number = 1800;               // 玩家纵向移动速度
-        private static readonly PLAYER_ANGULAR_V: number = 7;           // 玩家角速度
-        private static readonly PLAYER_ROTATION_V: number = 360;        // 玩家旋转速度 
 
         private mapLayer: MapLayer = new MapLayer();
         private player: Player;
@@ -15,14 +11,8 @@ namespace bottle {
         private materialOptions: p2.ContactMaterialOptions;
 
         private curTime: number;
-
-        private jumpTimeKey: number;                        // 记录跳跃计时器标识
-        private curIsCanJump: boolean = true;         // 记录当前是否可以跳跃
-        private beforeBodyId: number = -1;             // 上一个的跳板的id
-        private isRotation: boolean = false;            // 是否可旋转
-
         private gameOverTimeKey: number;            // 游戏结束计时器标识
-        private isFirstCollision: boolean = false;  // 是否第一次碰撞
+        private disableBodys: Array<p2.Body> = [];    // 记录禁用碰撞的刚体
 
         public constructor() {
             super();
@@ -33,8 +23,11 @@ namespace bottle {
             this.once(egret.Event.ADDED_TO_STAGE, this.init, this);
         }
 
-        private onDestroy(): void {
-            egret.clearTimeout(this.jumpTimeKey);
+        public onDestroy(): void {
+            if (this.player) {
+                this.player.onDestroy();
+            }
+
             egret.clearTimeout(this.gameOverTimeKey);
             this.removeEventListener(egret.Event.ENTER_FRAME, this.loop, this);
             this.removeEventListener(egret.TouchEvent.TOUCH_BEGIN, this.onTouchBegin, this);
@@ -52,7 +45,7 @@ namespace bottle {
 
                 // this.mapLayer.addContactMaterial(this.materialOptions, this.player);
 
-                console.log("开始游戏");
+                console.log("Game Start");
                 this.curTime = this.getCTime();
 
                 this.addEventListener(egret.TouchEvent.TOUCH_BEGIN, this.onTouchBegin, this);
@@ -90,19 +83,21 @@ namespace bottle {
 
             let player: Player = new Player();
             player.init(this.world, this, gameData.playerId, "bottle_png", initPos.x, initPos.y);
-            this.player = player;
+            player.setBeforeBodyId(gameData.firstBoardId);
 
-            this.beforeBodyId = gameData.firstBoardId;
+            this.player = player;
         }
 
+        /**创建debug调试 */
         private createDebug(): void {
-            //创建调试试图
+            //创建调试视图
             this.debugDraw = new p2DebugDraw(this.world);
             let sprite: egret.Sprite = new egret.Sprite();
             this.addChild(sprite);
             this.debugDraw.setSprite(sprite);
         }
 
+        /**游戏循环 */
         private loop(): void {
             let curTime: number = this.getCTime();
             let dt: number = curTime - this.curTime;
@@ -110,13 +105,13 @@ namespace bottle {
 
             this.world.step(dt / 1000);
             P2BodyUtil.syncDisplay(this.player);
+            this.player.calculatePlayerFlip(dt);
 
             this.mapLayer.followPlayer(this.player);
 
             P2BodyUtil.syncP2Body(this.player);
             this.mapLayer.syncP2Bodys();
 
-            this.calculatePlayer(dt);
             let isGameOver: boolean = this.checkGameOver();
             this.debugDraw.drawDebug();
 
@@ -126,54 +121,34 @@ namespace bottle {
             this.handleGameOver();
         }
 
-        private calculatePlayer(dt: number): void {
-            if (!this.isRotation) {
-                return;
-            }
-            let display: egret.DisplayObject = this.player.displays[0];
-            display.rotation += dt / 1000 * GameMainLayer.PLAYER_ROTATION_V;
-            P2BodyUtil.syncP2Body(this.player);
-        }
-
+        /**检测游戏是否结束 */
         private checkGameOver(): boolean {
-            let display: egret.DisplayObject = this.player.displays[0];
             let gameData: GameData = BottleConfigData.GAME_DATA
 
             let collision: p2.Body = P2BodyUtil.checkCollision(this.world, this.player);
             if (collision && collision.id == gameData.groundId) {
                 return true;
             }
+            this.player.onCollision(collision);
 
-            if (collision && collision.id != this.beforeBodyId && this.isFirstCollision) {
-                this.isFirstCollision = false;
-
-                egret.Tween.removeTweens(display);
-                this.isRotation = false;
-
-                this.player.angularVelocity = 0;
-                this.player.velocity[0] = 0;
-
-                if (Math.abs(display.rotation) < 30) {      // 修正细微偏差
-                    display.rotation = collision.displays[0].rotation;
-                    P2BodyUtil.syncP2Body(this.player);
-                }
-            }
             return false;
         }
 
+        /**处理游戏结束 */
         private handleGameOver(): void {
+            console.log("Game Over");
+
             this.removeEventListener(egret.Event.ENTER_FRAME, this.loop, this);
             this.removeEventListener(egret.TouchEvent.TOUCH_BEGIN, this.onTouchBegin, this);
-            egret.clearTimeout(this.jumpTimeKey);
 
-            let display: egret.DisplayObject = this.player.displays[0];
-            egret.Tween.removeTweens(display);
+            this.player.stopFlipAnimation();
 
             // this.resetGame();
 
             egret.clearTimeout(this.gameOverTimeKey);
             this.gameOverTimeKey = egret.setTimeout(() => {
-                console.log("开始游戏");
+                console.log("Game Start");
+
                 // this.curTime = this.getCTime();
                 this.resetGame();
                 this.addEventListener(egret.TouchEvent.TOUCH_BEGIN, this.onTouchBegin, this);
@@ -181,80 +156,54 @@ namespace bottle {
             }, this, 500);
         }
 
+        /**重置游戏状态 */
         private resetGame(): void {
-            this.curIsCanJump = true;
-            this.isRotation = false;
-            this.beforeBodyId = BottleConfigData.GAME_DATA.firstBoardId;
             this.curTime = this.getCTime();
-            this.isFirstCollision = false;
 
             this.mapLayer.resetMap(this.player);
             this.resetPlayer();
 
-            P2BodyUtil.syncP2Body(this.player);
-            this.mapLayer.syncP2Bodys();
-
             this.debugDraw.drawDebug();
         }
 
+        /**重置玩家状态 */
         private resetPlayer(): void {
             let initPos: { x: number, y: number } = this.mapLayer.getPlayerInitPos();
-            this.player.angularVelocity = 0;
-            this.player.velocity = [0, 0];
-
-            let display: egret.DisplayObject = this.player.displays[0];
-            egret.Tween.removeTweens(display);
-
-            display.x = initPos.x;
-            display.y = initPos.y - display.height / 2;
-            display.rotation = 0;
+            this.player.resetPlayer(initPos);
         }
 
         private onTouchBegin(e: egret.TouchEvent): void {
-            if (e.stageY > this.height || !this.curIsCanJump) {
+
+            if (e.stageY > this.height || !this.player.getIsCanJump()) {
                 return;
             }
             if (!this.checkIsCanJump(this.world, this.player)) {
                 return;
             }
-            this.player.velocity[0] = GameMainLayer.PLAYER_VX;
-            this.player.velocity[1] = -GameMainLayer.PLAYER_VY;
-            // this.player.angularVelocity = GameMainLayer.PLAYER_ANGULAR_V;
+            this.player.onJump();
+            this.handleCollision();
+        }
 
+        private checkIsCanJump(world: p2.World, player: p2.Body): boolean {
+            return P2BodyUtil.checkIsCanJump(world, player);
+        }
+
+        /**处理刚体碰撞 */
+        private handleCollision(): void {
             let collision: p2.Body = P2BodyUtil.getCollisionBody(this.world, this.player);
-            this.beforeBodyId = collision.id;
+            this.player.setBeforeBodyId(collision.id);
 
             let gameData: GameData = BottleConfigData.GAME_DATA
             if (collision.id != gameData.groundId) {
                 this.world.disableBodyCollision(this.player, collision);
             }
 
-            this.isFirstCollision = true;
+            /**解除之前碰撞的刚体的禁制 */
+            this.disableBodys.forEach((body: p2.Body) => {
+                this.world.enableBodyCollision(this.player, body);
+            });
 
-            this.curIsCanJump = false;
-            egret.clearTimeout(this.jumpTimeKey);
-            this.jumpTimeKey = egret.setTimeout(() => {
-                this.curIsCanJump = true;
-                this.world.enableBodyCollision(this.player, collision);
-            }, this, 500);
-
-            this.startBottleRotation();
-        }
-
-        /**开始旋转瓶子 */
-        private startBottleRotation(): void {
-            let display: egret.DisplayObject = this.player.displays[0];
-            egret.Tween.removeTweens(display);
-            this.isRotation = true;
-            egret.Tween.get(display).wait(1000).call(() => {
-                this.isRotation = false;
-                this.player.angularVelocity = 0;
-                // this.player.velocity = [0, 0];
-            }, this);
-        }
-
-        private checkIsCanJump(world: p2.World, player: p2.Body): boolean {
-            return P2BodyUtil.checkIsCanJump(world, player);
+            this.disableBodys = [collision];
         }
 
     }

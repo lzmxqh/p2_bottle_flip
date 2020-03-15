@@ -79,6 +79,7 @@ namespace bottle {
 		public resetMap(player: p2.Body): void {
 			this.skipGroundGroup.x = 0;
 			this.resetCollision(player);
+			this.syncP2Bodys();
 		}
 
 		/**重置碰撞 */
