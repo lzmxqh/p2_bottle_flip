@@ -8,13 +8,13 @@ namespace bottle {
         private static readonly PLAYER_ROTATION_V: number = 360;        // 玩家旋转速度 
 
         private mapLayer: MapLayer = new MapLayer();
+        private player: Player;
 
         private debugDraw: p2DebugDraw;
         private world: p2.World;
         private materialOptions: p2.ContactMaterialOptions;
 
         private curTime: number;
-        private player: p2.Body;
 
         private jumpTimeKey: number;                        // 记录跳跃计时器标识
         private curIsCanJump: boolean = true;         // 记录当前是否可以跳跃
@@ -86,9 +86,13 @@ namespace bottle {
         /**创建玩家 */
         private createPlayer(): void {
             let initPos: { x: number, y: number } = this.mapLayer.getPlayerInitPos();
-            let player: p2.Body = P2BodyUtil.createPlayerFactory(this.world, this, 101, "bottle_png", initPos.x, initPos.y);
+            let gameData: GameData = BottleConfigData.GAME_DATA;
+
+            let player: Player = new Player();
+            player.init(this.world, this, gameData.playerId, "bottle_png", initPos.x, initPos.y);
             this.player = player;
-            this.beforeBodyId = 2;
+
+            this.beforeBodyId = gameData.firstBoardId;
         }
 
         private createDebug(): void {
@@ -133,9 +137,10 @@ namespace bottle {
 
         private checkGameOver(): boolean {
             let display: egret.DisplayObject = this.player.displays[0];
+            let gameData: GameData = BottleConfigData.GAME_DATA
 
             let collision: p2.Body = P2BodyUtil.checkCollision(this.world, this.player);
-            if (collision && collision.id == 1) {
+            if (collision && collision.id == gameData.groundId) {
                 return true;
             }
 
@@ -179,7 +184,7 @@ namespace bottle {
         private resetGame(): void {
             this.curIsCanJump = true;
             this.isRotation = false;
-            this.beforeBodyId = 2;
+            this.beforeBodyId = BottleConfigData.GAME_DATA.firstBoardId;
             this.curTime = this.getCTime();
             this.isFirstCollision = false;
 
@@ -218,7 +223,9 @@ namespace bottle {
 
             let collision: p2.Body = P2BodyUtil.getCollisionBody(this.world, this.player);
             this.beforeBodyId = collision.id;
-            if (collision.id != 1) {
+
+            let gameData: GameData = BottleConfigData.GAME_DATA
+            if (collision.id != gameData.groundId) {
                 this.world.disableBodyCollision(this.player, collision);
             }
 

@@ -93,7 +93,8 @@ namespace bottle {
          * 创建场景界面
          * Create scene interface
          */
-        protected createGameScene(): void {
+        protected createGameScene() {
+            BottleConfigData.init();
             let gameMain: GameMainLayer = new GameMainLayer();
             this.addChild(gameMain);
         }

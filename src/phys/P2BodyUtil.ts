@@ -42,40 +42,6 @@ namespace bottle {
 			return p2body;
 		}
 
-		/**玩家创建工厂 */
-		public static createPlayerFactory(world: p2.World, container: egret.DisplayObjectContainer, id: number, img: string, xLanding: number, yLanding: number): p2.Body {
-			let p2body: p2.Body = new p2.Body({
-				mass: 1,
-				type: p2.Body.DYNAMIC,
-				allowSleep: false
-				// applySpringForces: false
-			});
-			p2body.id = id;
-			world.addBody(p2body);
-
-			// 依照纹理尺寸
-			let texture: egret.Texture = RES.getRes(img);
-			let display: egret.DisplayObject = new egret.Bitmap(texture);
-
-			// 对应p2形状的宽高要根据玩家计算
-			let shape: p2.Box = new p2.Box({ width: display.width, height: display.height });
-			// shape.material = new p2.Material(id);
-			p2body.addShape(shape);
-
-			p2body.position = [xLanding, yLanding - display.height / 2];
-
-			display.anchorOffsetX = display.width / 2;
-			display.anchorOffsetY = display.height / 2;
-			p2body.displays = [display];
-
-			container.addChild(display);
-
-			// console.log(shape.vertices, p2body.angle);
-			// shape.vertices = [[0, 10], [10, 10], [10, 10], [0, 0]];
-
-			return p2body;
-		}
-
 		/**
 		 * 同步显示对象
 		 * @param 刚体

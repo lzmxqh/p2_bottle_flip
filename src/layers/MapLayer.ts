@@ -18,13 +18,17 @@ namespace bottle {
 
 		/**创建地板, 跳板刚体 */
 		private createGroud(world: p2.World): void {
+			let gameData: GameData = BottleConfigData.GAME_DATA;
+			let groundId: number = gameData.groundId;
+			let firstBoardId: number = gameData.firstBoardId;
+
 			// 创建地面
-			let ground: p2.Body = P2BodyUtil.createGroundFactory(world, this.ground, 1, 0);
+			let ground: p2.Body = P2BodyUtil.createGroundFactory(world, this.ground, groundId, 0);
 			this.fixedGroundArray.push(ground);
 
 			// 创建跳板
 			for (let i = 0; i < this.skipGroundGroup.numChildren; i++) {
-				let skipGround: p2.Body = P2BodyUtil.createGroundFactory(world, this.skipGroundGroup.getChildAt(i), i + 2, 0);
+				let skipGround: p2.Body = P2BodyUtil.createGroundFactory(world, this.skipGroundGroup.getChildAt(i), i + firstBoardId, 0);
 				if (skipGround) {
 					this.fixedGroundArray.push(skipGround);
 				}
