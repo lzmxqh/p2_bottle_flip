@@ -1,4 +1,6 @@
-declare class MapLayerSkin extends eui.Skin{
+declare module bottle{
+	class MapLayerSkin extends eui.Skin{
+	}
 }
 declare module skins{
 	class ButtonSkin extends eui.Skin{
